@@ -1,0 +1,484 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="initial-scale=1,user-scalable=no,maximum-scale=1,width=device-width">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <link rel="stylesheet" href="css/leaflet.css">
+        <link rel="stylesheet" href="css/L.Control.Layers.Tree.css">
+        <link rel="stylesheet" href="css/L.Control.Locate.min.css">
+        <link rel="stylesheet" href="css/qgis2web.css">
+        <link rel="stylesheet" href="css/fontawesome-all.min.css">
+        <link rel="stylesheet" href="css/leaflet-control-geocoder.Geocoder.css">
+        <link rel="stylesheet" href="css/leaflet-measure.css">
+        <style>
+        html, body, #map {
+            width: 100%;
+            height: 100%;
+            padding: 0;
+            margin: 0;
+        }
+        </style>
+        <title>ACTIVIDADE SISMICA ENTRE 1970 - 2024</title>
+    </head>
+    <body>
+        <div id="map">
+        </div>
+        <script src="js/qgis2web_expressions.js"></script>
+        <script src="js/leaflet.js"></script>
+        <script src="js/L.Control.Layers.Tree.min.js"></script>
+        <script src="js/L.Control.Locate.min.js"></script>
+        <script src="js/leaflet.rotatedMarker.js"></script>
+        <script src="js/leaflet.pattern.js"></script>
+        <script src="js/leaflet-hash.js"></script>
+        <script src="js/Autolinker.min.js"></script>
+        <script src="js/rbush.min.js"></script>
+        <script src="js/labelgun.min.js"></script>
+        <script src="js/labels.js"></script>
+        <script src="js/leaflet-control-geocoder.Geocoder.js"></script>
+        <script src="js/leaflet-measure.js"></script>
+        <script src="data/Profundidade_Km_1.js"></script>
+        <script src="data/Magnitude_2.js"></script>
+        <script>
+        var highlightLayer;
+        function highlightFeature(e) {
+            highlightLayer = e.target;
+
+            if (e.target.feature.geometry.type === 'LineString' || e.target.feature.geometry.type === 'MultiLineString') {
+              highlightLayer.setStyle({
+                color: '#ff7f00',
+              });
+            } else {
+              highlightLayer.setStyle({
+                fillColor: '#ff7f00',
+                fillOpacity: 1
+              });
+            }
+            highlightLayer.openPopup();
+        }
+        var map = L.map('map', {
+            zoomControl:false, maxZoom:28, minZoom:1
+        }).fitBounds([[-22.359696848099432,31.578295776018287],[-19.599956093709565,36.556189935387046]]);
+        var hash = new L.Hash(map);
+        map.attributionControl.setPrefix('<a href="https://github.com/tomchadwin/qgis2web" target="_blank">qgis2web</a> &middot; <a href="https://leafletjs.com" title="A JS library for interactive maps">Leaflet</a> &middot; <a href="https://qgis.org">QGIS</a>');
+        var autolinker = new Autolinker({truncate: {length: 30, location: 'smart'}});
+        // remove popup's row if "visible-with-data"
+        function removeEmptyRowsFromPopupContent(content, feature) {
+         var tempDiv = document.createElement('div');
+         tempDiv.innerHTML = content;
+         var rows = tempDiv.querySelectorAll('tr');
+         for (var i = 0; i < rows.length; i++) {
+             var td = rows[i].querySelector('td.visible-with-data');
+             var key = td ? td.id : '';
+             if (td && td.classList.contains('visible-with-data') && feature.properties[key] == null) {
+                 rows[i].parentNode.removeChild(rows[i]);
+             }
+         }
+         return tempDiv.innerHTML;
+        }
+        // add class to format popup if it contains media
+		function addClassToPopupIfMedia(content, popup) {
+			var tempDiv = document.createElement('div');
+			tempDiv.innerHTML = content;
+			if (tempDiv.querySelector('td img')) {
+				popup._contentNode.classList.add('media');
+					// Delay to force the redraw
+					setTimeout(function() {
+						popup.update();
+					}, 10);
+			} else {
+				popup._contentNode.classList.remove('media');
+			}
+		}
+        var title = new L.Control({'position':'topright'});
+        title.onAdd = function (map) {
+            this._div = L.DomUtil.create('div', 'info');
+            this.update();
+            return this._div;
+        };
+        title.update = function () {
+            this._div.innerHTML = '<h2>ACTIVIDADE SISMICA ENTRE 1970 - 2024</h2>';
+        };
+        title.addTo(map);
+        var abstract = new L.Control({'position':'bottomleft'});
+        abstract.onAdd = function (map) {
+            this._div = L.DomUtil.create('div',
+            'leaflet-control abstract');
+            this._div.id = 'abstract'
+
+                abstract.show();
+                return this._div;
+            };
+            abstract.show = function () {
+                this._div.classList.remove("abstract");
+                this._div.classList.add("abstractUncollapsed");
+                this._div.innerHTML = 'Série temporal da actividade sísmica em Moçambique entre 1970 – 2024. WebMap preparado pela CARTESIAN GROUP ®. Fonte dos dados: ©USGS ';
+        };
+        abstract.addTo(map);
+        var zoomControl = L.control.zoom({
+            position: 'topleft'
+        }).addTo(map);
+        L.control.locate({locateOptions: {maxZoom: 19}}).addTo(map);
+        var measureControl = new L.Control.Measure({
+            position: 'topleft',
+            primaryLengthUnit: 'meters',
+            secondaryLengthUnit: 'kilometers',
+            primaryAreaUnit: 'sqmeters',
+            secondaryAreaUnit: 'hectares'
+        });
+        measureControl.addTo(map);
+        document.getElementsByClassName('leaflet-control-measure-toggle')[0].innerHTML = '';
+        document.getElementsByClassName('leaflet-control-measure-toggle')[0].className += ' fas fa-ruler';
+        var bounds_group = new L.featureGroup([]);
+        function setBounds() {
+        }
+        map.createPane('pane_Positronretina_0');
+        map.getPane('pane_Positronretina_0').style.zIndex = 400;
+        var layer_Positronretina_0 = L.tileLayer('https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}@2x.png', {
+            pane: 'pane_Positronretina_0',
+            opacity: 1.0,
+            attribution: '<a href="https://cartodb.com/basemaps/">Map tiles by CartoDB, under CC BY 3.0. Data by OpenStreetMap, under ODbL.</a>',
+            minZoom: 1,
+            maxZoom: 28,
+            minNativeZoom: 0,
+            maxNativeZoom: 20
+        });
+        layer_Positronretina_0;
+        map.addLayer(layer_Positronretina_0);
+        function pop_Profundidade_Km_1(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Data</th>\
+                        <td>' + (feature.properties['Data'] !== null ? autolinker.link(feature.properties['Data'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Lat</th>\
+                        <td>' + (feature.properties['Lat'] !== null ? autolinker.link(feature.properties['Lat'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Long</th>\
+                        <td>' + (feature.properties['Long'] !== null ? autolinker.link(feature.properties['Long'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Profundidade (Km)</th>\
+                        <td>' + (feature.properties['Profund. ('] !== null ? autolinker.link(feature.properties['Profund. ('].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Magnitude</th>\
+                        <td>' + (feature.properties['Magnitude'] !== null ? autolinker.link(feature.properties['Magnitude'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Fonte Dados</th>\
+                        <td>' + (feature.properties['Fonte Dado'] !== null ? autolinker.link(feature.properties['Fonte Dado'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Profundidade_Km_1_0(feature) {
+            if (feature.properties['Profund. ('] >= 0.600000 && feature.properties['Profund. ('] <= 10.000000 ) {
+                return {
+                pane: 'pane_Profundidade_Km_1',
+                radius: 2.0,
+                opacity: 1,
+                color: 'rgba(255,255,255,0.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(227,26,28,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['Profund. ('] >= 10.000000 && feature.properties['Profund. ('] <= 10.000000 ) {
+                return {
+                pane: 'pane_Profundidade_Km_1',
+                radius: 4.0,
+                opacity: 1,
+                color: 'rgba(255,255,255,0.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(227,26,28,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['Profund. ('] >= 10.000000 && feature.properties['Profund. ('] <= 10.000000 ) {
+                return {
+                pane: 'pane_Profundidade_Km_1',
+                radius: 6.0,
+                opacity: 1,
+                color: 'rgba(255,255,255,0.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(227,26,28,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['Profund. ('] >= 10.000000 && feature.properties['Profund. ('] <= 10.000000 ) {
+                return {
+                pane: 'pane_Profundidade_Km_1',
+                radius: 8.0,
+                opacity: 1,
+                color: 'rgba(255,255,255,0.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(227,26,28,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['Profund. ('] >= 10.000000 && feature.properties['Profund. ('] <= 33.300000 ) {
+                return {
+                pane: 'pane_Profundidade_Km_1',
+                radius: 10.0,
+                opacity: 1,
+                color: 'rgba(255,255,255,0.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(227,26,28,1.0)',
+                interactive: true,
+            }
+            }
+        }
+        map.createPane('pane_Profundidade_Km_1');
+        map.getPane('pane_Profundidade_Km_1').style.zIndex = 401;
+        map.getPane('pane_Profundidade_Km_1').style['mix-blend-mode'] = 'normal';
+        var layer_Profundidade_Km_1 = new L.geoJson(json_Profundidade_Km_1, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Profundidade_Km_1',
+            layerName: 'layer_Profundidade_Km_1',
+            pane: 'pane_Profundidade_Km_1',
+            onEachFeature: pop_Profundidade_Km_1,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Profundidade_Km_1_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Profundidade_Km_1);
+        map.addLayer(layer_Profundidade_Km_1);
+        function pop_Magnitude_2(feature, layer) {
+            layer.on({
+                mouseout: function(e) {
+                    for (var i in e.target._eventParents) {
+                        if (typeof e.target._eventParents[i].resetStyle === 'function') {
+                            e.target._eventParents[i].resetStyle(e.target);
+                        }
+                    }
+                    if (typeof layer.closePopup == 'function') {
+                        layer.closePopup();
+                    } else {
+                        layer.eachLayer(function(feature){
+                            feature.closePopup()
+                        });
+                    }
+                },
+                mouseover: highlightFeature,
+            });
+            var popupContent = '<table>\
+                    <tr>\
+                        <th scope="row">Data</th>\
+                        <td>' + (feature.properties['Data'] !== null ? autolinker.link(feature.properties['Data'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Lat</th>\
+                        <td>' + (feature.properties['Lat'] !== null ? autolinker.link(feature.properties['Lat'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Long</th>\
+                        <td>' + (feature.properties['Long'] !== null ? autolinker.link(feature.properties['Long'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Profundidade (Km)</th>\
+                        <td>' + (feature.properties['Profund. ('] !== null ? autolinker.link(feature.properties['Profund. ('].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Magnitude</th>\
+                        <td>' + (feature.properties['Magnitude'] !== null ? autolinker.link(feature.properties['Magnitude'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                    <tr>\
+                        <th scope="row">Fonte Dado</th>\
+                        <td>' + (feature.properties['Fonte Dado'] !== null ? autolinker.link(feature.properties['Fonte Dado'].toLocaleString()) : '') + '</td>\
+                    </tr>\
+                </table>';
+            var content = removeEmptyRowsFromPopupContent(popupContent, feature);
+			layer.on('popupopen', function(e) {
+				addClassToPopupIfMedia(content, e.popup);
+			});
+			layer.bindPopup(content, { maxHeight: 400 });
+        }
+
+        function style_Magnitude_2_0(feature) {
+            if (feature.properties['Magnitude'] >= 2.900000 && feature.properties['Magnitude'] <= 4.200000 ) {
+                return {
+                pane: 'pane_Magnitude_2',
+                radius: 5.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(252,253,191,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['Magnitude'] >= 4.200000 && feature.properties['Magnitude'] <= 4.400000 ) {
+                return {
+                pane: 'pane_Magnitude_2',
+                radius: 5.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(251,135,97,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['Magnitude'] >= 4.400000 && feature.properties['Magnitude'] <= 4.600000 ) {
+                return {
+                pane: 'pane_Magnitude_2',
+                radius: 5.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(182,54,122,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['Magnitude'] >= 4.600000 && feature.properties['Magnitude'] <= 4.800000 ) {
+                return {
+                pane: 'pane_Magnitude_2',
+                radius: 5.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(80,18,123,1.0)',
+                interactive: true,
+            }
+            }
+            if (feature.properties['Magnitude'] >= 4.800000 && feature.properties['Magnitude'] <= 7.000000 ) {
+                return {
+                pane: 'pane_Magnitude_2',
+                radius: 5.0,
+                opacity: 1,
+                color: 'rgba(35,35,35,1.0)',
+                dashArray: '',
+                lineCap: 'butt',
+                lineJoin: 'miter',
+                weight: 1,
+                fill: true,
+                fillOpacity: 1,
+                fillColor: 'rgba(0,0,4,1.0)',
+                interactive: true,
+            }
+            }
+        }
+        map.createPane('pane_Magnitude_2');
+        map.getPane('pane_Magnitude_2').style.zIndex = 402;
+        map.getPane('pane_Magnitude_2').style['mix-blend-mode'] = 'normal';
+        var layer_Magnitude_2 = new L.geoJson(json_Magnitude_2, {
+            attribution: '',
+            interactive: true,
+            dataVar: 'json_Magnitude_2',
+            layerName: 'layer_Magnitude_2',
+            pane: 'pane_Magnitude_2',
+            onEachFeature: pop_Magnitude_2,
+            pointToLayer: function (feature, latlng) {
+                var context = {
+                    feature: feature,
+                    variables: {}
+                };
+                return L.circleMarker(latlng, style_Magnitude_2_0(feature));
+            },
+        });
+        bounds_group.addLayer(layer_Magnitude_2);
+        map.addLayer(layer_Magnitude_2);
+        var osmGeocoder = new L.Control.Geocoder({
+            collapsed: true,
+            position: 'topleft',
+            text: 'Search',
+            title: 'Testing'
+        }).addTo(map);
+        document.getElementsByClassName('leaflet-control-geocoder-icon')[0]
+        .className += ' fa fa-search';
+        document.getElementsByClassName('leaflet-control-geocoder-icon')[0]
+        .title += 'Search for a place';
+        var baseMaps = {};
+        var overlaysTree = [
+            {label: 'Magnitude<br /><table><tr><td style="text-align: center;"><img src="legend/Magnitude_2_340.png" /></td><td>3 - 4</td></tr><tr><td style="text-align: center;"><img src="legend/Magnitude_2_441.png" /></td><td>4 - 4</td></tr><tr><td style="text-align: center;"><img src="legend/Magnitude_2_452.png" /></td><td>4 - 5</td></tr><tr><td style="text-align: center;"><img src="legend/Magnitude_2_553.png" /></td><td>5 - 5</td></tr><tr><td style="text-align: center;"><img src="legend/Magnitude_2_574.png" /></td><td>5 - 7</td></tr></table>', layer: layer_Magnitude_2},
+            {label: 'Profundidade_Km<br /><table><tr><td style="text-align: center;"><img src="legend/Profundidade_Km_1_06100.png" /></td><td>0.6 - 10</td></tr><tr><td style="text-align: center;"><img src="legend/Profundidade_Km_1_10101.png" /></td><td>10 - 10</td></tr><tr><td style="text-align: center;"><img src="legend/Profundidade_Km_1_10102.png" /></td><td>10 - 10</td></tr><tr><td style="text-align: center;"><img src="legend/Profundidade_Km_1_10103.png" /></td><td>10 - 10</td></tr><tr><td style="text-align: center;"><img src="legend/Profundidade_Km_1_103334.png" /></td><td>10 - 33.3</td></tr></table>', layer: layer_Profundidade_Km_1},
+            {label: "Positron (retina)", layer: layer_Positronretina_0},]
+        var lay = L.control.layers.tree(null, overlaysTree,{
+            //namedToggle: true,
+            //selectorBack: false,
+            //closedSymbol: '&#8862; &#x1f5c0;',
+            //openedSymbol: '&#8863; &#x1f5c1;',
+            //collapseAll: 'Collapse all',
+            //expandAll: 'Expand all',
+            collapsed: true,
+        });
+        lay.addTo(map);
+        setBounds();
+        </script>
+    </body>
+</html>
